@@ -3,23 +3,17 @@
 Project structure:
 
 ```
-.
-├── airflow/
-│   ├── dags/
-│   ├── scheduler/
-│   └── webserver/
-├── data/
-│   └── Data
-├── hadoop/
-│   ├── datanode/
-│   └── namenode/
-├── images/
-├── scripts/
-│   └── fake.txt
-├── spark/
-│   └── fake.txt
-├── sql/
-│   └── fake.txt
-├── docker-compose.yaml
-└── README.md
+ETL-NYC-Uber/
+│
+├── airflow/            # DAGs & Airflow configs
+├── data/               # Raw & processed datasets
+├── hadoop/             # Hadoop configurations/files
+├── images/             # Project images/assets
+├── scripts/            # Utility scripts (Python, Bash)
+├── spark/              # Spark jobs & code
+├── sql/                # SQL queries
+│
+├── .gitignore
+├── README.md
+└── docker-compose.yaml # Services setup (Airflow, Spark, etc.)
 ```
