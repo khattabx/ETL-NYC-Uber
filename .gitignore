@@ -1,0 +1,18 @@
+# Environment files
+.env
+.env.*
+
+# Data artifacts
+data/
+*.parquet
+
+# Local runtime files
+*.log
+*.tmp
+*.pid
+
+# Other
+.vscode/
+.idea/
+.DS_Store
+
