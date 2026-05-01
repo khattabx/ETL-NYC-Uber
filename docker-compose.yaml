@@ -19,7 +19,6 @@ x-airflow-common: &airflow-common
     MSSQL_JDBC_USER: sa
     MSSQL_JDBC_PASSWORD: ${MSSQL_SA_PASSWORD}
     HADOOP_USER_NAME: hadoop
-
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./scripts:/opt/airflow/scripts
@@ -181,22 +180,23 @@ services:
   airflow-init:
     <<: *airflow-common
     container_name: airflow-init
-    restart: on-failure
-    command: >
-      bash -c "
-      airflow db upgrade &&
-      airflow users create 
-      --username '${AIRFLOW_ADMIN_USER:-admin}' 
-      --firstname Admin 
-      --lastname User 
-      --role Admin 
-      --email '${AIRFLOW_ADMIN_EMAIL:-admin@uber-etl.local}' 
-      --password '${AIRFLOW_ADMIN_PASSWORD}' || true &&
-      echo '[OK] Airflow init complete.'"
+    restart: "no"
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username "${AIRFLOW_ADMIN_USER:-admin}" \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email "${AIRFLOW_ADMIN_EMAIL:-admin@uber-etl.local}" \
+          --password "${AIRFLOW_ADMIN_PASSWORD}" || true
+        echo "[OK] Airflow init complete."
     depends_on:
-      airflow-postgres:
-        condition: service_healthy
-
+        airflow-postgres:
+          condition: service_healthy
   # 7. AIRFLOW — Webserver
   airflow-webserver:
     <<: *airflow-common
