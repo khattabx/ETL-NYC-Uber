@@ -1,4 +1,38 @@
 version: "3.8"
+
+# AIRFLOW SHARED CONFIG (anchor)
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.1
+  env_file: .env
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@airflow-postgres:5432/${POSTGRES_DB}
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+    # Passthrough to DAG tasks
+    HADOOP_HOST: hadoopc
+    HDFS_URL: hdfs://hadoopc:9000
+    SPARK_MASTER_URL: spark://spark-master:7077
+    MSSQL_JDBC_URL: ${MSSQL_JDBC_URL}
+    MSSQL_JDBC_USER: sa
+    MSSQL_JDBC_PASSWORD: ${MSSQL_SA_PASSWORD}
+    HADOOP_USER_NAME: hadoop
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./scripts:/opt/airflow/scripts
+    - ./spark:/opt/airflow/spark
+    - ./data:/opt/airflow/data
+    - airflow_logs:/opt/airflow/logs
+    - /var/run/docker.sock:/var/run/docker.sock  
+  networks:
+    - etl-network
+  depends_on:
+    airflow-postgres:
+      condition: service_healthy
+  restart: unless-stopped
+
 services:
   hadoop:
     image: asami76/hadoop-pseudo:v1.0
@@ -14,27 +48,204 @@ services:
       - "19888:19888"  # MapReduce History     → http://localhost:19888
       - "9000:9000"    # HDFS NameNode RPC     → hadoopc:9000
     volumes:
-      - ./data:/home/hadoop/data
+      - ./data:/home/hadoop/data      # raw parquet files
     networks:
       etl-network:
         aliases:
           - hadoopc
+# -----------------------------------------------------------------------------
+#? To solve Container hadoopc Error dependency hadoop failed to start.
+#    healthcheck:
+#      #! test: ["CMD", "curl", "-f", "http://localhost:9870"] # Old test 
+#      # To solve Container hadoopc Error dependency hadoop failed to start.
+#      test: ["CMD-SHELL", "netstat -tuln | grep 9000 || exit 1"] 
+#      interval: 30s
+#      timeout: 10s
+#      retries: 15 
+#      start_period: 120s # 2min to make sure the bootstrap completly finished.
+# -----------------------------------------------------------------------------
+# 2. SPARK — Master
+  spark-master:
+    image: apache/spark:latest
+    container_name: spark-master
+    hostname: spark-master
+    restart: unless-stopped
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+    environment:
+      - SPARK_MASTER_PORT=7077
+      - SPARK_MASTER_WEBUI_PORT=8080
+      - SPARK_HADOOP_FS_DEFAULTFS=hdfs://hadoopc:9000
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+      - "4040:4040"
+    volumes:
+      - ./spark:/opt/spark-apps
+      - ./spark/jars:/opt/spark/jars/extra
+      - ./data:/opt/spark-apps/data
+      - spark_work:/opt/spark/work
+    networks:
+      etl-network:
+        aliases:
+          - spark-master
+    depends_on:
+      hadoop:
+        # TODO: From 'service_healthy' to 'service_started' to start spark if hadoop is still try to start
+        condition: service_started
+    mem_limit: 1500m
+    
+# 2. SPARK — Worker
+  spark-worker:
+    image: apache/spark:latest
+    container_name: spark-worker
+    hostname: spark-worker
+    restart: unless-stopped
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+    environment:
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_WEBUI_PORT=8081
+      - SPARK_HADOOP_FS_DEFAULTFS=hdfs://hadoopc:9000
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./spark:/opt/spark-apps
+      - ./spark/jars:/opt/spark/jars/extra
+      - spark_work:/opt/spark/work
+    networks:
+      - etl-network
+    depends_on:
+      spark-master:
+        condition: service_started 
+    mem_limit: 1500m
+
+  # 4. MICROSOFT SQL SERVER 2022
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mssqlc
+    hostname: mssqlc
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      MSSQL_PID: Express
+    ports:
+      - "1433:1433"    # JDBC → jdbc:sqlserver://mssqlc:1433
+    volumes:
+      - mssql_data:/var/opt/mssql
+      - ./mssql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      etl-network:
+        aliases:
+          - mssqlc
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9870"]
+      test:
+        - CMD-SHELL
+        - >
+          /opt/mssql-tools/bin/sqlcmd -S localhost -U sa
+          -P "${MSSQL_SA_PASSWORD}" -Q "SELECT 1" > /dev/null 2>&1
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 90s
+    mem_limit: 2g
+    memswap_limit: 2g
+
+  # 5. AIRFLOW — Postgres metadata backend
+  airflow-postgres:
+    image: postgres:15-alpine
+    container_name: airflow-postgres
+    hostname: airflow-postgres
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - airflow_pg_data:/var/lib/postgresql/data
+    networks:
+      - etl-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    mem_limit: 512m
+    memswap_limit: 512m
+
+  # 6. AIRFLOW — Init  (db migrate + admin user, exits after done)
+  airflow-init:
+    <<: *airflow-common
+    container_name: airflow-init
+    restart: "no"
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username "${AIRFLOW_ADMIN_USER:-admin}" \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email "${AIRFLOW_ADMIN_EMAIL:-admin@uber-etl.local}" \
+          --password "${AIRFLOW_ADMIN_PASSWORD}" || true
+        echo "[OK] Airflow init complete."
+    depends_on:
+        airflow-postgres:
+          condition: service_healthy
+  # 7. AIRFLOW — Webserver
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow-webserver
+    command: webserver
+    ports:
+      - "8082:8080"    # Airflow UI → http://localhost:8082
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
-      retries: 10
-      start_period: 40s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
 
-# SPARK
-# MSSQL
-# AIRFLOW 
+  # 8. AIRFLOW — Scheduler
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow-scheduler
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --limit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
 
-# NETWORKS
+# NETWORK
 networks:
   etl-network:
     driver: bridge
     name: etl-nyc-uber-network
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
 
 # VOLUMES
-volumes: {}
+volumes:
+  mssql_data:
+    driver: local
+  airflow_pg_data:
+    driver: local
+  airflow_logs:
+    driver: local
+  spark_work:
+    driver: local
+
