@@ -3,6 +3,7 @@ version: "3.8"
 # AIRFLOW SHARED CONFIG (anchor)
 x-airflow-common: &airflow-common
   image: apache/airflow:2.9.1
+  user: "${AIRFLOW_UID:-50000}:${DOCKER_GID:-986}" 
   env_file: .env
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -24,6 +25,8 @@ x-airflow-common: &airflow-common
     - ./scripts:/opt/airflow/scripts
     - ./spark:/opt/airflow/spark
     - ./data:/opt/airflow/data
+    - ./hadoop/scripts:/opt/airflow/hadoop/scripts
+    - ./hadoop/config:/opt/airflow/hadoop/config
     - airflow_logs:/opt/airflow/logs
     - /var/run/docker.sock:/var/run/docker.sock  
   networks:
@@ -48,7 +51,9 @@ services:
       - "19888:19888"  # MapReduce History     → http://localhost:19888
       - "9000:9000"    # HDFS NameNode RPC     → hadoopc:9000
     volumes:
-      - ./data:/home/hadoop/data      # raw parquet files
+      - ./data:/home/hadoop/data 
+      - ./hadoop/scripts:/home/hadoop/scripts     
+      - ./hadoop/config:/home/hadoop/config        
     networks:
       etl-network:
         aliases:
