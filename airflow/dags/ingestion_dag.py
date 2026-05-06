@@ -8,7 +8,7 @@ from airflow.utils.trigger_rule import TriggerRule
 HADOOP_SCRIPTS = "/opt/airflow/hadoop/scripts"
 
 DEFAULT_ARGS = {
-    "owner": "Tech-Khattabx",
+    "owner": "Data Engineering Team",
     "depends_on_past": False,
     "retries": 2,
     "retry_delay": timedelta(minutes=3),
