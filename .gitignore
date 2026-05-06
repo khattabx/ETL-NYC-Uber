@@ -3,7 +3,6 @@
 .env.*
 
 # Data artifacts
-data/
 *.parquet
 
 # Local runtime files
