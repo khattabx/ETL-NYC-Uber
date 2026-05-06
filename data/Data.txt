@@ -1,0 +1,2 @@
+# NOTE: The raw data files are ignored because they exceed the size limit.
+# Please download them manually from the source if needed.
