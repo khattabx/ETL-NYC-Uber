@@ -1,9 +1,10 @@
 version: "3.8"
-
+# Permission denied on /var/run/docker.sock → sudo usermod -aG docker $USER && newgrp docker → getent group docker | cut -d: -f3 → update below
+#? DOCKER_GID=xxx
 # AIRFLOW SHARED CONFIG (anchor)
 x-airflow-common: &airflow-common
   image: apache/airflow:2.9.1
-  user: "${AIRFLOW_UID:-50000}:${DOCKER_GID:-986}" 
+  user: "${AIRFLOW_UID:-50000}:${DOCKER_GID:-967}" 
   env_file: .env
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
