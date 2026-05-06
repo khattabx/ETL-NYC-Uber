@@ -1,6 +1,8 @@
-# NYC Ubre ETL Pipline
+# NYC Uber ETL Pipeline
 
-Project structure:
+This repository contains an end-to-end ETL pipeline for NYC Uber data using Airflow, Spark, Hadoop, and SQL.
+
+## Project Structure
 
 ```
 ETL-NYC-Uber/
@@ -17,3 +19,7 @@ ETL-NYC-Uber/
 ├── README.md
 └── docker-compose.yaml # Services setup (Airflow, Spark, etc.)
 ```
+
+## Contributing
+
+Please see `CONTRIBUTING.md` for how to fork via SSH, add the upstream remote, and submit a PR with the required naming convention.
