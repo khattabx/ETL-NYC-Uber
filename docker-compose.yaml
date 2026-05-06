@@ -125,6 +125,26 @@ services:
         condition: service_started 
     mem_limit: 1500m
 
+  jupyter:
+      image: jupyter/pyspark-notebook:latest
+      container_name: jupyter
+      hostname: jupyter
+      restart: unless-stopped
+      ports:
+        - "8888:8888"    # Jupyter UI → http://localhost:8888
+      environment:
+        - JUPYTER_ENABLE_LAB=yes
+        - SPARK_MASTER=spark://spark-master:7077
+        - HADOOP_USER_NAME=hadoop
+      volumes:
+        - ./spark:/home/jovyan/work/spark
+        - ./data:/home/jovyan/work/data
+      networks:
+        - etl-network
+      depends_on:
+        - spark-master
+        - hadoop
+
   # 4. MICROSOFT SQL SERVER 2022
   mssql:
     image: mcr.microsoft.com/mssql/server:2022-latest
