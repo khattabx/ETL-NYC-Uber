@@ -1,28 +1,23 @@
-![Project Banner](link-to-your-image)
-
 # NYC Uber ETL Pipeline
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
-![Jupyter](https://img.shields.io/badge/Jupyter-Notebooks-F37626?logo=jupyter&logoColor=white)
 ![Apache Hadoop](https://img.shields.io/badge/Apache%20Hadoop-HDFS-66CCFF?logo=apachehadoop&logoColor=black)
 ![Apache Spark](https://img.shields.io/badge/Apache%20Spark-Standalone-E25A1C?logo=apachespark&logoColor=white)
 ![Snowflake](https://img.shields.io/badge/Snowflake-Data%20Warehouse-29B5E8?logo=snowflake&logoColor=white)
 ![Apache Airflow](https://img.shields.io/badge/Apache%20Airflow-2.9.1-017CEE?logo=apacheairflow&logoColor=white)
 
-## Overview
-
-An end-to-end, containerized ETL pipeline for NYC TLC taxi trip Parquet data that ingests raw files into HDFS on a schedule, validates the landing zone, and provides a Spark-based transformation layer designed to load curated (star-schema) tables into a SQL Server data warehouse.
+An end-to-end, containerized ETL pipeline for NYC TLC taxi trip Parquet data that ingests raw files into HDFS on a schedule, validates the landing zone, and provides a Spark-based transformation layer designed to load curated (star-schema) tables into a SQL data warehouse.
 
 ![Pipeline](./images/pipeline.png)
 
 Core stack: 
 ```python
-Docker Compose,
-Apache Airflow (orchestration),
-Hadoop HDFS (raw layer), 
-Apache Spark (clean/transform), 
-Microsoft SQL Server (DWH), 
-PostgreSQL (Airflow metadata), 
-Python/Bash, and Jupyter (EDA).
+- Docker Compose,
+- Apache Airflow (orchestration),
+- Hadoop HDFS (raw layer), 
+- Apache Spark (clean/transform), 
+- Snowflake (DWH), 
+- PostgreSQL (Airflow metadata), 
+- Python/Bash, and Jupyter (EDA).
 ```
 
 ## Project Structure
@@ -63,7 +58,7 @@ Key directories:
 - `spark/`: transformation layer (notebooks today; `jobs/` intended for `spark-submit` workflows).
 - `data/`: local file drop-zone that gets bind-mounted into Hadoop/Spark/Airflow.
 
-## Notes
+## Project Details
 
 Quickstart (local, Docker Compose):
 
@@ -73,11 +68,6 @@ docker compose up -d hadoop spark-master spark-worker mssql airflow-postgres
 docker compose up airflow-init
 docker compose up -d airflow-webserver airflow-scheduler
 ```
-
-How ingestion works:
-- Drop NYC TLC Parquet files into `./data/` (expected pattern: `*_tripdata_*.parquet`, e.g. `yellow_tripdata_2025-01.parquet`).
-- Airflow runs `uber_ingestion_pipeline` every 15 minutes (`airflow/dags/ingestion_dag.py`).
-- The DAG calls `hadoop/scripts/ingest_to_hdfs.sh` to upload new files into `HDFS_RAW=/uber/data/raw`, then `hadoop/scripts/validate_hdfs.py` to verify the raw layer.
 
 Environment variables (high-signal):
 
@@ -91,24 +81,69 @@ Environment variables (high-signal):
 | `MSSQL_JDBC_URL` | `.env` | JDBC URL passed into Airflow tasks for DWH loads. |
 | `DOCKER_GID` | `.env` | Fixes permissions for `/var/run/docker.sock` mounted into Airflow. |
 
-Gotchas:
-- Airflow ingestion/validation tasks run `docker exec hadoopc ...`; the Airflow container must be able to talk to the Docker socket and have a working `docker` client available.
-- If you hit `permission denied` on `/var/run/docker.sock`, set `DOCKER_GID` in `.env` (see the comment at the top of `docker-compose.yaml`).
-- `docker-compose.yaml` bind-mounts `./mssql/init.sql`, but the repository currently has no `mssql/` directory; create it (and `init.sql`) or update/remove that mount.
-- The Hadoop base image may clear data on container teardown; treat HDFS as ephemeral unless you add persistence (see `hadoop/README.md`).
+---
 
-Service UIs and ports:
-- Airflow UI: http://localhost:8082
-- Spark Master UI: http://localhost:8080
-- Spark Worker UI: http://localhost:8081
-- Spark Application UI: http://localhost:4040
-- HDFS NameNode UI: http://localhost:9870
-- YARN ResourceManager: http://localhost:8088
-- SQL Server: `localhost:1433`
+#### Ingestion Layer:
+- Drop NYC TLC Parquet files into `./data/` (expected pattern: `*_tripdata_*.parquet`, e.g. `yellow_tripdata_2025-01.parquet`).
+- Airflow runs `uber_ingestion_pipeline` every 15 minutes (`airflow/dags/ingestion_dag.py`).
+- The DAG calls `hadoop/scripts/ingest_to_hdfs.sh` to upload new files into `HDFS_RAW=/uber/data/raw`, then `hadoop/scripts/validate_hdfs.py` to verify the raw layer.
 
-## Links
-- Hadoop docs: [./hadoop/README.md](hadoop/README.md)
-- Spark docs: [./spark/README.md](spark/README.md)
-- Contributing: [./CONTRIBUTING.md](CONTRIBUTING.md)
+![ingest](./hadoop/images/ingestflow.png)
+
+#### Transformation Layer:
+- Spark Master triggers scheduled jobs from `./spark/jobs/` using the `spark-submit` protocol.
+- The pipeline executes `clean.py` to handle data type casting and deduplication, followed by `transform.py` to apply business logic and aggregations.
+- Processed data is read from `HDFS_RAW`, transformed in-memory across Spark Workers, and the final curated results are loaded into SQL Server DWH via JDBC.
+
+![ingest](./spark/images/transformLayer.png)
+
+**Process Flow:**
+```mermaid
+graph LR
+    HDFS_Raw[HDFS Raw Layer] --> Spark_Clean[Spark Cleaning Job]
+    Spark_Clean --> Spark_Trans[Spark Transformation Job]
+    Spark_Trans --> SQL_DWH[SQL Server DWH]
+```
+
+---
+
+### Gotchas
+
+> [!IMPORTANT]
+> **Docker Socket Permissions**: 
+> Airflow uses `docker exec` to communicate with the Hadoop container. 
+> - Ensure the Airflow container has access to the Docker socket.
+> - If you encounter a `permission denied` on `/var/run/docker.sock`, update the `DOCKER_GID` in your `.env` file as described in `docker-compose.yaml`.
+
+> [!WARNING]
+> **Database Initialization**: 
+> The current `docker-compose.yaml` expects an initialization script at `./mssql/init.sql`. 
+> - **Action Required**: Create the `mssql/` directory and `init.sql` file, or comment out the bind-mount in the compose file to avoid startup errors.
+
+> [!NOTE]
+> **HDFS Persistence**: 
+> By default, the Hadoop base image treats HDFS as **ephemeral** (data will be lost when containers are torn down). 
+> - For persistent storage configurations, please refer to [./hadoop/README.md](hadoop/README.md).
+
+### Service UIs & Ports
+
+| Service | UI / Access Link | Port |
+| :--- | :--- | :--- |
+| **Airflow UI** | [http://localhost:8082](http://localhost:8082) | `8082` |
+| **Spark Master UI** | [http://localhost:8080](http://localhost:8080) | `8080` |
+| **Spark Worker UI** | [http://localhost:8081](http://localhost:8081) | `8081` |
+| **Spark Application UI** | [http://localhost:4040](http://localhost:4040) | `4040` |
+| **HDFS NameNode UI** | [http://localhost:9870](http://localhost:9870) | `9870` |
+| **YARN ResourceManager** | [http://localhost:8088](http://localhost:8088) | `8088` |
+| **SQL Server** | `localhost:1433` | `1433` |
+
+### Project Documentation
+
+| Category | Resource | Link |
+| :--- | :--- | :--- |
+| 🐘 **Big Data** | Hadoop Documentation | [./hadoop/README.md](hadoop/README.md) |
+| ✨ **Processing** | Spark Documentation | [./spark/README.md](spark/README.md) |
+| 🤝 **Collaboration** | Contributing Guide | [./CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ## Dashboard
+![Dashboard](./images/fake.png)
