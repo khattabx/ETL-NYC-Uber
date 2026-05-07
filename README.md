@@ -82,18 +82,14 @@ Environment variables (high-signal):
 | `DOCKER_GID` | `.env` | Fixes permissions for `/var/run/docker.sock` mounted into Airflow. |
 
 ---
-
-#### Ingestion Layer:
-- Drop NYC TLC Parquet files into `./data/` (expected pattern: `*_tripdata_*.parquet`, e.g. `yellow_tripdata_2025-01.parquet`).
-- Airflow runs `uber_ingestion_pipeline` every 15 minutes (`airflow/dags/ingestion_dag.py`).
-- The DAG calls `hadoop/scripts/ingest_to_hdfs.sh` to upload new files into `HDFS_RAW=/uber/data/raw`, then `hadoop/scripts/validate_hdfs.py` to verify the raw layer.
+### System Overview
+#### Ingestion Pipeline:
+- The system monitors the `./data/` directory for NYC TLC Parquet files matching the `*_tripdata_*.parquet` pattern, orchestrating a 15-minute ingestion cycle via the `uber_ingestion_pipeline` DAG in Apache Airflow which executes `ingest_to_hdfs.sh` for HDFS raw zone transfer and `validate_hdfs.py` for data integrity verification.
 
 ![ingest](./hadoop/images/ingestflow.png)
 
-#### Transformation Layer:
-- Spark Master triggers scheduled jobs from `./spark/jobs/` using the `spark-submit` protocol.
-- The pipeline executes `clean.py` to handle data type casting and deduplication, followed by `transform.py` to apply business logic and aggregations.
-- Processed data is read from `HDFS_RAW`, transformed in-memory across Spark Workers, and the final curated results are loaded into SQL Server DWH via JDBC.
+#### Transformation & Loading:
+- Spark Standalone cluster retrieves raw data from HDFS to perform cleaning and analytical transformations through production-ready jobs located in `spark/jobs/`, handling schema enforcement and business logic before persisting final curated datasets into the SQL Server Data Warehouse via JDBC.
 
 ![ingest](./spark/images/transformLayer.png)
 
@@ -141,9 +137,9 @@ graph LR
 
 | Category | Resource | Link |
 | :--- | :--- | :--- |
-| 🐘 **Big Data** | Hadoop Documentation | [./hadoop/README.md](hadoop/README.md) |
-| ✨ **Processing** | Spark Documentation | [./spark/README.md](spark/README.md) |
-| 🤝 **Collaboration** | Contributing Guide | [./CONTRIBUTING.md](CONTRIBUTING.md) |
+| **Big Data** | Hadoop Documentation | [./hadoop/README.md](hadoop/README.md) |
+| **Processing** | Spark Documentation | [./spark/README.md](spark/README.md) |
+| **Collaboration** | Contributing Guide | [./CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ## Dashboard
 ![Dashboard](./images/fake.png)
