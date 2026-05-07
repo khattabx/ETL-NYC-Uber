@@ -47,7 +47,13 @@ with DAG(
         env={"HADOOP_USER_NAME": "hadoop"},
         execution_timeout=timedelta(minutes=5),
     )
-
+    
+    trigger_transformation = TriggerDagRunOperator(
+        task_id="trigger_transformation",
+        trigger_dag_id="uber_transformation_pipeline",
+        wait_for_completion=False,
+    )
+    
     # 3. Success log
     success_log = BashOperator(
         task_id="log_success",
@@ -77,5 +83,5 @@ with DAG(
     )
 
     # Flow 
-    ingest >> validate >> success_log
-    [ingest, validate] >> fail_alert
+    ingest >> validate >> trigger_transformation >> success_log
+    [ingest, validate, trigger_transformation] >> fail_alert
