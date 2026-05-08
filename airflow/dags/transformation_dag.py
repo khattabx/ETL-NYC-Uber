@@ -11,11 +11,11 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.utils.trigger_rule import TriggerRule
 
-SPARK_SUBMIT = "docker exec spark-master spark-submit --master spark://spark-master:7077"
+SPARK_SUBMIT = "docker exec spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077"
 SPARK_APPS   = "/opt/spark-apps/jobs"
 
 DEFAULT_ARGS = {
-    "owner": "Tech-Khattabx",
+    "owner": "Data Engineering Team",
     "depends_on_past": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=5),

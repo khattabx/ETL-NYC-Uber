@@ -6,7 +6,6 @@ Reads raw parquet from HDFS, applies cleaning logic, writes cleaned parquet back
 
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-import sys
 
 HDFS_RAW     = "hdfs://hadoopc:9000/uber/data/raw"
 HDFS_CLEANED = "hdfs://hadoopc:9000/uber/data/cleaned"
@@ -29,10 +28,13 @@ def clean(df):
     df = df.dropDuplicates()
 
     # 2. Trip duration in minutes
+    # TIMESTAMP_NTZ can't cast to long directly → use unix_timestamp after casting to timestamp
     df = df.withColumn(
         "trip_duration_min",
-        (F.col("tpep_dropoff_datetime").cast("long") -
-         F.col("tpep_pickup_datetime").cast("long")) / 60
+        (
+            F.unix_timestamp(F.col("tpep_dropoff_datetime").cast("timestamp")) -
+            F.unix_timestamp(F.col("tpep_pickup_datetime").cast("timestamp"))
+        ) / 60
     )
 
     # 3. Remove invalid trips
@@ -68,6 +70,9 @@ def clean(df):
     df = df.withColumn("passenger_count", F.col("passenger_count").cast("integer"))
     df = df.withColumn("PULocationID",    F.col("PULocationID").cast("integer"))
     df = df.withColumn("DOLocationID",    F.col("DOLocationID").cast("integer"))
+    df = df.withColumn("RatecodeID",      F.col("RatecodeID").cast("integer"))
+    df = df.withColumn("payment_type",    F.col("payment_type").cast("integer"))
+    df = df.withColumn("VendorID",        F.col("VendorID").cast("integer"))
 
     return df
 

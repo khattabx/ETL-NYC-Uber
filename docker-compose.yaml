@@ -61,7 +61,8 @@ services:
     volumes:
       - ./data:/home/hadoop/data 
       - ./hadoop/scripts:/home/hadoop/scripts     
-      - ./hadoop/config:/home/hadoop/config        
+      - ./hadoop/config:/home/hadoop/config
+      - ./hadoop/config/core-site.xml:/usr/local/hadoop/etc/hadoop/core-site.xml 
     networks:
       etl-network:
         aliases:
@@ -137,6 +138,7 @@ services:
       - ./spark:/opt/spark-apps
       - ./spark/jars:/opt/spark/jars/extra
       - spark_work:/opt/spark/work
+    user: "root"
     networks:
       - etl-network
     depends_on:
