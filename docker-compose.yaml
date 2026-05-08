@@ -25,6 +25,12 @@ x-airflow-common: &airflow-common
     SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE}
     SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA}
     SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE}
+  deploy:
+    resources:
+      limits:
+        memory: 4G 
+      reservations:
+        memory: 2G
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./scripts:/opt/airflow/scripts
@@ -33,7 +39,8 @@ x-airflow-common: &airflow-common
     - ./hadoop/scripts:/opt/airflow/hadoop/scripts
     - ./hadoop/config:/opt/airflow/hadoop/config
     - airflow_logs:/opt/airflow/logs
-    - /var/run/docker.sock:/var/run/docker.sock  
+    - /var/run/docker.sock:/var/run/docker.sock
+    - ./requirements.txt:/requirements.txt
   networks:
     - etl-network
   depends_on:

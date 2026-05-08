@@ -16,12 +16,7 @@ SPARK_SUBMIT = (
     "--master spark://spark-master:7077 "
     "--conf spark.jars.ivy=/tmp/.ivy"
 )
-
-SPARK_APPS   = "/opt/spark-apps/jobs"
-SF_PACKAGES  = (
-    "net.snowflake:snowflake-jdbc:3.13.30,"
-    "net.snowflake:spark-snowflake_2.12:2.16.0-spark_3.4"
-)
+SPARK_APPS = "/opt/spark-apps/jobs"
 
 DEFAULT_ARGS = {
     "owner": "Data Engineering Team",
@@ -49,14 +44,21 @@ with DAG(
         execution_timeout=timedelta(minutes=30),
     )
 
-    # 2. Transform → Snowflake
+    # 2. Transform → CSV on HDFS
     transform = BashOperator(
         task_id="transform_to_star",
         bash_command=f"{SPARK_SUBMIT} {SPARK_APPS}/transform.py",
         execution_timeout=timedelta(minutes=30),
     )
 
-    # 3. Success log
+    # 3. Load CSV → Snowflake
+    load = BashOperator(
+        task_id="load_to_snowflake",
+        bash_command="python3 /opt/airflow/spark/jobs/load_to_snowflake.py",
+        execution_timeout=timedelta(minutes=60),
+    )
+
+    # 4. Success log
     success_log = BashOperator(
         task_id="log_success",
         bash_command="""
@@ -69,7 +71,7 @@ with DAG(
         trigger_rule=TriggerRule.ALL_SUCCESS,
     )
 
-    # 4. Failure alert
+    # 5. Failure alert
     fail_alert = BashOperator(
         task_id="alert_on_failure",
         bash_command="""
@@ -83,6 +85,5 @@ with DAG(
     )
 
     # Flow
-    clean >> transform >> success_log
-    [clean, transform] >> fail_alert
-    
+    clean >> transform >> load >> success_log
+    [clean, transform, load] >> fail_alert
