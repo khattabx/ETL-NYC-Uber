@@ -1,11 +1,12 @@
-version: "3.8"
+# version: "3.8"
 
 x-airflow-common: &airflow-common
   image: apache/airflow:2.9.1
-  user: "${AIRFLOW_UID:-50000}:${DOCKER_GID:-967}" 
+  user: "50000:0" 
   env_file: .env
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    PATH: "/home/airflow/.local/bin:${PATH}"
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
