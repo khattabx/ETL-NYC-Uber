@@ -3,7 +3,6 @@ transformation_dag.py
 DAG ID  : uber_transformation_pipeline
 Trigger : triggered by uber_ingestion_pipeline
 """
-
 from __future__ import annotations
 from datetime import datetime, timedelta
 
@@ -11,8 +10,18 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.utils.trigger_rule import TriggerRule
 
-SPARK_SUBMIT = "docker exec spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077"
+SPARK_SUBMIT = (
+    "docker exec spark-master "
+    "/opt/spark/bin/spark-submit "
+    "--master spark://spark-master:7077 "
+    "--conf spark.jars.ivy=/tmp/.ivy"
+)
+
 SPARK_APPS   = "/opt/spark-apps/jobs"
+SF_PACKAGES  = (
+    "net.snowflake:snowflake-jdbc:3.13.30,"
+    "net.snowflake:spark-snowflake_2.12:2.16.0-spark_3.4"
+)
 
 DEFAULT_ARGS = {
     "owner": "Data Engineering Team",
@@ -27,7 +36,7 @@ with DAG(
     description="Clean + Transform Uber data → Snowflake Star Schema",
     default_args=DEFAULT_ARGS,
     start_date=datetime(2025, 1, 1),
-    schedule_interval=None,   # triggered by ingestion DAG
+    schedule_interval=None,
     catchup=False,
     max_active_runs=1,
     tags=["uber", "transformation", "spark", "snowflake"],
@@ -76,3 +85,4 @@ with DAG(
     # Flow
     clean >> transform >> success_log
     [clean, transform] >> fail_alert
+    
