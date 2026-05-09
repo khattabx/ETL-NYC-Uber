@@ -2,6 +2,8 @@
 
 ## DAG: `uber_ingestion_pipeline`
 
+![ingest](images/ingestdag.png)
+
 **Purpose**: Ingests NYC TLC trip data into the HDFS raw layer on a 15‑minute cadence, validates the landing zone, then triggers the transformation DAG.
 
 **Schedule**: `*/15 * * * *` (every 15 minutes). `catchup=False`, `max_active_runs=1`.
@@ -25,6 +27,8 @@
 ---
 
 ## DAG: `uber_transformation_pipeline`
+
+![transform](images/transformdag.png)
 
 **Purpose**: Cleans raw data, builds the star schema tables, and loads curated data into Snowflake.
 
