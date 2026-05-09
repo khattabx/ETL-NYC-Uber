@@ -1,7 +1,5 @@
 # Airflow DAG Documentation
 
-This document explains the Airflow pipelines defined in `airflow/dags/`.
-
 ## DAG: `uber_ingestion_pipeline`
 
 **Purpose**: Ingests NYC TLC trip data into the HDFS raw layer on a 15‑minute cadence, validates the landing zone, then triggers the transformation DAG.
