@@ -5,7 +5,7 @@
 ![Snowflake](https://img.shields.io/badge/Snowflake-Data%20Warehouse-29B5E8?logo=snowflake&logoColor=white)
 ![Apache Airflow](https://img.shields.io/badge/Apache%20Airflow-2.9.1-017CEE?logo=apacheairflow&logoColor=white)
 
-An end-to-end, containerized ETL pipeline for NYC TLC taxi trip Parquet data that ingests raw files into HDFS on a schedule, validates the landing zone, and provides a Spark-based transformation layer designed to load curated (star-schema) tables into a SQL data warehouse.
+An end-to-end, containerized ETL pipeline for NYC TLC taxi trip Parquet data that ingests raw files into HDFS on a schedule, validates the landing zone, and provides a Spark-based transformation layer designed to load curated (star-schema) tables into a Snowflake data warehouse.
 
 ![Pipeline](./images/pipeline.png)
 
@@ -89,17 +89,13 @@ Environment variables (high-signal):
 ![ingest](./hadoop/images/ingestflow.png)
 
 #### Transformation & Loading:
-- Spark Standalone cluster retrieves raw data from HDFS to perform cleaning and analytical transformations through production-ready jobs located in `spark/jobs/`, handling schema enforcement and business logic before persisting final curated datasets into the SQL Server Data Warehouse via JDBC.
+- Spark Standalone cluster retrieves raw data from HDFS to perform cleaning and analytical transformations through production-ready jobs located in `spark/jobs/`, handling schema enforcement and business logic before persisting final curated datasets into the Snowflake Data Warehouse.
 
 ![ingest](./spark/images/transformLayer.png)
 
 **Process Flow:**
-```mermaid
-graph LR
-    HDFS_Raw[HDFS Raw Layer] --> Spark_Clean[Spark Cleaning Job]
-    Spark_Clean --> Spark_Trans[Spark Transformation Job]
-    Spark_Trans --> SQL_DWH[SQL Server DWH]
-```
+
+![ingest](./images/process.png)
 
 ---
 
