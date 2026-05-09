@@ -59,7 +59,9 @@ def stream_csv_from_hdfs(hdfs_path: str):
     reader_started = False
     header = None
 
-    for chunk in resp.iter_content(chunk_size=65536, decode_unicode=True):
+    for chunk in resp.iter_content(chunk_size=65536):
+        if isinstance(chunk, bytes):
+            chunk = chunk.decode("utf-8")
         buffer += chunk
         lines = buffer.split("\n")
         buffer = lines[-1]
