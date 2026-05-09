@@ -57,6 +57,8 @@ for FILE in "${FILES[@]}"; do
     if docker exec hadoopc $HADOOP_BIN dfs -put "$HADOOP_FILE" "$HDFS_DEST" 2>/dev/null; then
         echo "  [Done] $FILENAME"
         ((UPLOADED++))
+        # echo "  [Sleep] Waiting 30 min before next file..."
+        # sleep 1800
     else
         echo "  [Fail] $FILENAME"
         ((FAILED++))
