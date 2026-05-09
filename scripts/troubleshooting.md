@@ -76,7 +76,8 @@ spark-worker:
 **Solution:** Adjust HDFS directory permissions.
 
 ```bash
-docker exec hadoopc /usr/local/hadoop/bin/hdfs dfs -chmod 777 /uber/data
+sudo chmod 666 /var/run/docker.sock # Allow Spark container to access Docker socket
+docker exec hadoopc /usr/local/hadoop/bin/hdfs dfs -chmod 777 /uber/data # Allow Spark to write to HDFS
 
 ```
 
