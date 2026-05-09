@@ -159,37 +159,37 @@ services:
   #       - hadoop
 
   # MICROSOFT SQL SERVER 2022
-  mssql:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: mssqlc
-    hostname: mssqlc
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      ACCEPT_EULA: "Y"
-      SA_PASSWORD: ${MSSQL_SA_PASSWORD}
-      MSSQL_PID: Express
-    ports:
-      - "1433:1433"
-    volumes:
-      - mssql_data:/var/opt/mssql
-      - ./mssql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    networks:
-      etl-network:
-        aliases:
-          - mssqlc
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - >
-          /opt/mssql-tools/bin/sqlcmd -S localhost -U sa
-          -P "${MSSQL_SA_PASSWORD}" -Q "SELECT 1" > /dev/null 2>&1
-      interval: 30s
-      timeout: 15s
-      retries: 10
-      start_period: 90s
-    mem_limit: 2g
-    memswap_limit: 2g
+  # mssql:
+  #   image: mcr.microsoft.com/mssql/server:2022-latest
+  #   container_name: mssqlc
+  #   hostname: mssqlc
+  #   restart: unless-stopped
+  #   env_file: .env
+  #   environment:
+  #     ACCEPT_EULA: "Y"
+  #     SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+  #     MSSQL_PID: Express
+  #   ports:
+  #     - "1433:1433"
+  #   volumes:
+  #     - mssql_data:/var/opt/mssql
+  #     - ./mssql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+  #   networks:
+  #     etl-network:
+  #       aliases:
+  #         - mssqlc
+  #   healthcheck:
+  #     test:
+  #       - CMD-SHELL
+  #       - >
+  #         /opt/mssql-tools/bin/sqlcmd -S localhost -U sa
+  #         -P "${MSSQL_SA_PASSWORD}" -Q "SELECT 1" > /dev/null 2>&1
+  #     interval: 30s
+  #     timeout: 15s
+  #     retries: 10
+  #     start_period: 90s
+  #   mem_limit: 2g
+  #   memswap_limit: 2g
 
   # AIRFLOW 
   airflow-postgres:
